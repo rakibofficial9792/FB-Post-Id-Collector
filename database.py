@@ -1,72 +1,87 @@
-import sqlite3
-import hashlib
 import os
+import hashlib
 from pathlib import Path
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
-DB_PATH = "data/app.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+engine = create_engine(DATABASE_URL)
 
-def get_db():
-    Path("data").mkdir(exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
-
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-
 def init_db():
-    Path("data").mkdir(exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+    with engine.connect() as conn:
 
-    # Users table
-    cur.execute("""
+        # Users table
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'user',
-            is_active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now'))
+            role TEXT NOT NULL DEFAULT 'worker',
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+        """))
 
-    # FB Pages table
-    cur.execute("""
+        # Facebook pages table
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS fb_pages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             page_id TEXT NOT NULL,
             access_token TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+        """))
 
-    # User ↔ Page access table
-    cur.execute("""
+        # User page access
+        conn.execute(text("""
         CREATE TABLE IF NOT EXISTS user_page_access (
-            user_id INTEGER NOT NULL,
-            page_id INTEGER NOT NULL,
-            PRIMARY KEY (user_id, page_id),
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (page_id) REFERENCES fb_pages(id)
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            page_id INTEGER REFERENCES fb_pages(id) ON DELETE CASCADE,
+            PRIMARY KEY(user_id, page_id)
         )
-    """)
+        """))
 
-    # Create default admin if not exists
-    admin_pass = hash_password(os.getenv("ADMIN_PASSWORD", "admin123"))
-    cur.execute("""
-        INSERT OR IGNORE INTO users (username, password_hash, role)
-        VALUES (?, ?, 'admin')
-    """, ("admin", admin_pass))
+        # Posts table
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS posts (
+            id SERIAL PRIMARY KEY,
+            post_id TEXT,
+            caption TEXT,
+            image_url TEXT,
+            post_time TEXT,
+            page_id INTEGER REFERENCES fb_pages(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """))
 
-    conn.commit()
-    conn.close()
-    print("✅ Database initialized")
+        # Default admin
+        admin_pass = hash_password(
+            os.getenv("ADMIN_PASSWORD", "admin123")
+        )
+
+        conn.execute(text("""
+        INSERT INTO users
+        (username, password_hash, role)
+        VALUES
+        (:username, :password_hash, :role)
+        ON CONFLICT (username) DO NOTHING
+        """), {
+            "username": "admin",
+            "password_hash": admin_pass,
+            "role": "admin"
+        })
+
+        conn.commit()
+
+    print("✅ PostgreSQL Database initialized")
