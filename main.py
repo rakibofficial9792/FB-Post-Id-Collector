@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import uvicorn
 
-from routers import auth, posts
+from routers import auth, posts, admin
 from database import init_db
 
 
@@ -33,6 +33,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(posts.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 # Serve frontend static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
