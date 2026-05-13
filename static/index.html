@@ -1,1 +1,154 @@
-<!DOCTYPE html><html><body><h1>Login Page Coming Soon</h1></body></html>
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — FB Post ID Collector</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080c14; --card: #111827; --border: #1e2d45;
+      --blue: #1877f2; --blue-dark: #1256b8;
+      --green: #00d084; --red: #ff4d6d;
+      --text: #e8edf5; --muted: #6b7a99;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Sora', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans); background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 400px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo-icon { font-size: 40px; margin-bottom: 10px; }
+    .logo-title { font-size: 22px; font-weight: 700; }
+    .logo-title span { color: var(--blue); }
+    .logo-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .input-group { margin-bottom: 16px; }
+    .input-wrap { position: relative; }
+    input {
+      width: 100%; padding: 13px 16px; background: #0d1421;
+      border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text); font-family: var(--sans); font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(24,119,242,0.12); }
+    input::placeholder { color: var(--muted); }
+    .show-btn {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px;
+    }
+    .btn {
+      width: 100%; padding: 14px; background: var(--blue); color: #fff;
+      border: none; border-radius: 10px; font-family: var(--sans);
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: all 0.2s; margin-top: 8px;
+    }
+    .btn:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(24,119,242,0.35); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .error {
+      background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
+      border-radius: 8px; padding: 10px 14px; font-size: 13px;
+      color: var(--red); margin-top: 12px; display: none;
+    }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer { text-align: center; margin-top: 24px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">📊</div>
+      <div class="logo-title">FB <span>Post ID</span> Collector</div>
+      <div class="logo-sub">তোমার account দিয়ে লগইন করো</div>
+    </div>
+
+    <div class="input-group">
+      <div class="label">Username</div>
+      <input type="text" id="username" placeholder="username" autocomplete="username" onkeydown="onEnter(event)">
+    </div>
+
+    <div class="input-group">
+      <div class="label">Password</div>
+      <div class="input-wrap">
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" onkeydown="onEnter(event)">
+        <button class="show-btn" onclick="togglePass()">👁️</button>
+      </div>
+    </div>
+
+    <button class="btn" id="loginBtn" onclick="doLogin()">🔐 লগইন করো</button>
+
+    <div class="error" id="errorBox"></div>
+
+    <div class="footer">Powered by Facebook Graph API v20.0</div>
+  </div>
+
+  <script>
+    // Redirect if already logged in
+    const tok = localStorage.getItem('auth_token');
+    const rol = localStorage.getItem('auth_role');
+    if (tok) window.location.href = rol === 'admin' ? '/admin' : '/dashboard';
+
+    function togglePass() {
+      const inp = document.getElementById('password');
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    function onEnter(e) { if (e.key === 'Enter') doLogin(); }
+
+    async function doLogin() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const btn      = document.getElementById('loginBtn');
+      const errBox   = document.getElementById('errorBox');
+
+      errBox.style.display = 'none';
+      if (!username || !password) { showError('Username এবং Password দাও'); return; }
+
+      btn.disabled   = true;
+      btn.innerHTML  = '<span class="spinner"></span> লগইন হচ্ছে...';
+
+      try {
+        const res  = await fetch('/api/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) { showError(data.error || 'লগইন ব্যর্থ হয়েছে'); return; }
+
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_role',  data.role);
+        localStorage.setItem('auth_user',  data.username);
+
+        window.location.href = data.role === 'admin' ? '/admin' : '/dashboard';
+      } catch {
+        showError('সার্ভারে সংযোগ করতে পারছে না। একটু পর চেষ্টা করো।');
+      } finally {
+        btn.disabled  = false;
+        btn.innerHTML = '🔐 লগইন করো';
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorBox');
+      el.textContent    = '❌ ' + msg;
+      el.style.display  = 'block';
+    }
+  </script>
+</body>
+</html>
